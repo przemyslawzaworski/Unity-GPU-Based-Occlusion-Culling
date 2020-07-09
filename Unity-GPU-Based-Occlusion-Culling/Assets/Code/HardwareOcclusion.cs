@@ -11,6 +11,7 @@ public class HardwareOcclusion : MonoBehaviour
 	private Material[] _Materials;
 	private ComputeBuffer _Buffer;
 	private Vector4[] _Elements;
+	private Vector4[] _Cache;
 	private GameObject[] _Cells;
 	private List<List<Renderer>> _MeshRenderers;
 
@@ -52,12 +53,30 @@ public class HardwareOcclusion : MonoBehaviour
 		return cube;
 	}
 
+	bool ArrayState (Vector4[] a, Vector4[] b)
+	{
+		for (int i=0; i<a.Length; i++)
+		{
+			bool x = Vector4.Dot(a[i], a[i]) > 0.0f;
+			bool y = Vector4.Dot(b[i], b[i]) > 0.0f;
+			if (x != y) return false;
+		}
+		return true;
+	}
+
+	void ArrayCopy (Vector4[] source, Vector4[] destination)
+	{
+		for (int i=0; i<source.Length; i++) destination[i] = source[i];
+	}
+
 	void Init()
 	{
 		_MeshRenderers = new List<List<Renderer>>();
 		_Materials = new Material[Targets.Length];
 		_Buffer = new ComputeBuffer(1, Targets.Length * 16, ComputeBufferType.Default);
 		_Elements = new Vector4[Targets.Length];
+		_Cache = new Vector4[Targets.Length];
+		if (_Cache.Length > 0) _Cache[0] = Vector4.one;
 		_Cells = new GameObject[Targets.Length];
 		Graphics.ClearRandomWriteTargets();
 		Graphics.SetRandomWriteTarget(1, _Buffer, false);
@@ -74,29 +93,41 @@ public class HardwareOcclusion : MonoBehaviour
 			_Materials[i].SetBuffer("buffer", _Buffer);
 		}
 	}
-	
+
 	void OnEnable() 
 	{
 		Init();
 	}
-	
+
 	void Update() 
 	{
 		_Buffer.GetData(_Elements);
-		for (int i=0; i<_MeshRenderers.Count; i++)
+		bool state = ArrayState (_Elements, _Cache);
+		if (!state)
 		{
-			for (int j=0; j<_MeshRenderers[i].Count; j++)
+			for (int i=0; i<_MeshRenderers.Count; i++)
 			{
-				_MeshRenderers[i][j].enabled = ((Mathf.Abs(Vector4.Dot(_Elements[i], _Elements[i])) > 0.0f));
+				for (int j=0; j<_MeshRenderers[i].Count; j++)
+				{
+					_MeshRenderers[i][j].enabled = (Vector4.Dot(_Elements[i], _Elements[i]) > 0.0f);
+				}
 			}
+			ArrayCopy(_Elements, _Cache);
 		}
 		System.Array.Clear(_Elements, 0, _Elements.Length);
 		_Buffer.SetData(_Elements);
 	}
-	
+
 	void OnDisable()
 	{
 		_Buffer.Dispose();
 		for (int i=0; i<_Cells.Length; i++) Destroy(_Cells[i]);
+		for (int i=0; i<_MeshRenderers.Count; i++)
+		{
+			for (int j=0; j<_MeshRenderers[i].Count; j++)
+			{
+				_MeshRenderers[i][j].enabled = true;
+			}
+		}
 	}
 }

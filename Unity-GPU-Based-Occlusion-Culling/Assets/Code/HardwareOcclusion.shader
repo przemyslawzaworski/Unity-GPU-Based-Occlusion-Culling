@@ -2,6 +2,7 @@
 {
 	SubShader
 	{
+		Cull Off
 		Tags { "RenderType" = "Transparent" "Queue" = "Transparent" }
 		Pass
 		{
