@@ -7,6 +7,7 @@ public class HardwareOcclusion : MonoBehaviour
 	public GameObject[] Targets;
 	public Shader HardwareOcclusionShader;
 	public bool Dynamic = false;
+	public uint Delay = 1;	
 	public bool Debug = false;
 
 	private Material _Material;
@@ -116,6 +117,7 @@ public class HardwareOcclusion : MonoBehaviour
 	void Update() 
 	{
 		if (Dynamic) GenerateMap();
+		if (Time.frameCount % Delay != 0) return;
 		_Writer.GetData(_Elements);
 		bool state = ArrayState (_Elements, _Cache);
 		if (!state)
