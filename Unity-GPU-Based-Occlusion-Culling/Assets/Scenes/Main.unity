@@ -561,7 +561,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 534669902}
   m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: -10, y: 1, z: 0}
+  m_LocalPosition: {x: -9.49, y: 1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -620,6 +620,7 @@ MonoBehaviour:
   - {fileID: 102586020}
   HardwareOcclusionShader: {fileID: 4800000, guid: 02dfdb4c5ea8ee649bd8eb88c323a491,
     type: 3}
+  Dynamic: 1
   Debug: 0
 --- !u!114 &637573411
 MonoBehaviour:
