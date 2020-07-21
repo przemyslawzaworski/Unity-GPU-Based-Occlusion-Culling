@@ -1,0 +1,29 @@
+﻿#pragma kernel CSMain
+
+struct Cuboid
+{
+	float3 Center;
+	float3 Scale;
+}; 
+
+StructuredBuffer<Cuboid> _AABB;    
+RWStructuredBuffer<int> _Intersection; 
+float4 _Point;
+
+float Box (float3 p, float3 c, float3 s)
+{
+	float mx = max(p.x - c.x - s.x, c.x - p.x - s.x);
+	float my = max(p.y - c.y - s.y, c.y - p.y - s.y);
+	float mz = max(p.z - c.z - s.z, c.z - p.z - s.z);
+	return max(max(mx, my), mz);
+}
+
+[numthreads(8,1,1)]
+void CSMain (uint threadId : SV_DispatchThreadID)
+{
+	uint numStructs, stride;
+	_AABB.GetDimensions(numStructs, stride);
+	if (threadId >= numStructs) return;
+	float result = Box(_Point.xyz, _AABB[threadId].Center, _AABB[threadId].Scale);
+	if (result < 0.0) _Intersection[0] = threadId;
+}

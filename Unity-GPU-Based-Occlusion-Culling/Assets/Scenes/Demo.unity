@@ -317,7 +317,9 @@ MonoBehaviour:
   Targets: []
   HardwareOcclusionShader: {fileID: 4800000, guid: 02dfdb4c5ea8ee649bd8eb88c323a491,
     type: 3}
+  IntersectionShader: {fileID: 7200000, guid: 4e8de3eb8ca6374448be02d2dc59851c, type: 3}
   Dynamic: 0
+  Delay: 1
   Debug: 0
 --- !u!114 &1410248461
 MonoBehaviour:
