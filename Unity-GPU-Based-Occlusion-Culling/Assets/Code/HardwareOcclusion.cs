@@ -10,6 +10,7 @@ public class HardwareOcclusion : MonoBehaviour
 	public GameObject[] Targets;
 	public Shader HardwareOcclusionShader;
 	public ComputeShader IntersectionShader;
+	public bool Intersection = true;
 	public bool Dynamic = false;
 	public uint Delay = 1;
 	public bool Debug = false;
@@ -19,7 +20,7 @@ public class HardwareOcclusion : MonoBehaviour
 	private ComputeBuffer _Writer;
 	private Vector4[] _Elements;
 	private Vector4[] _Cache;
-	private List<List<Renderer>> _MeshRenderers;
+	private List<List<MeshRenderer>> _MeshRenderers;
 	private List<Vector4> _Vertices;
 
 	private ComputeBuffer _AABB;
@@ -64,7 +65,7 @@ public class HardwareOcclusion : MonoBehaviour
 		BoxCollider bc = parent.AddComponent<BoxCollider>();
 		Bounds bounds = new Bounds (Vector3.zero, Vector3.zero);
 		bool hasBounds = false;
-		Renderer[] renderers = parent.GetComponentsInChildren<Renderer>();
+		MeshRenderer[] renderers = parent.GetComponentsInChildren<MeshRenderer>();
 		for (int i=0; i<renderers.Length; i++) 
 		{
 			if (hasBounds) 
@@ -107,7 +108,7 @@ public class HardwareOcclusion : MonoBehaviour
 	{
 		_Vertices.Clear();
 		_Vertices.TrimExcess();
-		for (int i=0; i<Targets.Length; i++) 
+		for (int i = 0; i < Targets.Length; i++) 
 		{
 			Vector4[] aabb = GenerateCell(Targets[i], i);
 			_Cuboids[i].Center = GetCenterFromCubeVertices(aabb);
@@ -119,7 +120,7 @@ public class HardwareOcclusion : MonoBehaviour
 
 	bool ArrayState (Vector4[] a, Vector4[] b)
 	{
-		for (int i=0; i<a.Length; i++)
+		for (int i = 0; i < a.Length; i++)
 		{
 			bool x = Vector4.Dot(a[i], a[i]) > 0.0f;
 			bool y = Vector4.Dot(b[i], b[i]) > 0.0f;
@@ -130,13 +131,13 @@ public class HardwareOcclusion : MonoBehaviour
 
 	void ArrayCopy (Vector4[] source, Vector4[] destination)
 	{
-		for (int i=0; i<source.Length; i++) destination[i] = source[i];
+		for (int i = 0; i < source.Length; i++) destination[i] = source[i];
 	}
 
 	void Init()
 	{
 		if (_Material == null) _Material = new Material(HardwareOcclusionShader);
-		_MeshRenderers = new List<List<Renderer>>();
+		_MeshRenderers = new List<List<MeshRenderer>>();
 		_Writer = new ComputeBuffer(Targets.Length, 16, ComputeBufferType.Default);
 		_Elements = new Vector4[Targets.Length];
 		_Cache = new Vector4[Targets.Length];
@@ -145,9 +146,9 @@ public class HardwareOcclusion : MonoBehaviour
 		_Vertices = new List<Vector4>();
 		Graphics.ClearRandomWriteTargets();
 		Graphics.SetRandomWriteTarget(1, _Writer, false);
-		for (int i=0; i<Targets.Length; i++)
+		for (int i = 0; i < Targets.Length; i++)
 		{
-			_MeshRenderers.Add(Targets[i].GetComponentsInChildren<Renderer>().ToList());
+			_MeshRenderers.Add(Targets[i].GetComponentsInChildren<MeshRenderer>().ToList());
 			Vector4[] aabb = GenerateCell(Targets[i], i);
 			_Cuboids[i].Center = GetCenterFromCubeVertices(aabb);
 			_Cuboids[i].Scale = GetScaleFromCubeVertices(aabb);
@@ -164,25 +165,27 @@ public class HardwareOcclusion : MonoBehaviour
 		IntersectionShader.SetBuffer(0, "_Intersection", _Intersection);
 		_AABB.SetData(_Cuboids);
 		_Reset = new int[1] {-1};
-		_Coroutine = StartCoroutine(UpdateAsync());
+		_Coroutine = Intersection ? StartCoroutine(UpdateAsync()) : null;
 	}
 
 	void OnEnable() 
 	{
+		if (Targets.Length == 0) return;
 		Init();
 	}
 
 	void Update() 
 	{
+		if (Targets.Length == 0) return;
 		if (Dynamic) GenerateMap();
 		if (Time.frameCount % Delay != 0) return;
 		_Writer.GetData(_Elements);
 		bool state = ArrayState (_Elements, _Cache);
 		if (!state)
 		{
-			for (int i=0; i<_MeshRenderers.Count; i++)
+			for (int i = 0; i < _MeshRenderers.Count; i++)
 			{
-				for (int j=0; j<_MeshRenderers[i].Count; j++)
+				for (int j = 0; j < _MeshRenderers[i].Count; j++)
 				{
 					if (i == _CellIndex)
 						_MeshRenderers[i][j].enabled = true;
@@ -200,8 +203,8 @@ public class HardwareOcclusion : MonoBehaviour
 	{
 		while (true)
 		{
-			Vector3 p = Camera.main.transform.position;
-			IntersectionShader.SetVector("_Point", new Vector4(p.x, p.y, p.z, 0.0f));
+			Vector3 position = Camera.main.transform.position;
+			IntersectionShader.SetVector("_Point", new Vector4(position.x, position.y, position.z, 0.0f));
 			_Intersection.SetData(_Reset);
 			int threadGroupsX = (int) Mathf.Ceil(_Cuboids.Length / 8.0f);
 			IntersectionShader.Dispatch(0, threadGroupsX, 1, 1);
@@ -213,20 +216,22 @@ public class HardwareOcclusion : MonoBehaviour
 
 	void OnRenderObject() 
 	{
+		if (_Vertices == null) return;
 		_Material.SetPass(0);
-		Graphics.DrawProcedural(MeshTopology.Triangles, _Vertices.Count, 1);
+		Graphics.DrawProceduralNow(MeshTopology.Triangles, _Vertices.Count, 1);
 	}
 
 	void OnDisable()
 	{
-		StopCoroutine(_Coroutine);
-		_Reader.Dispose();
-		_Writer.Dispose();
-		_AABB.Dispose();
-		_Intersection.Dispose();
-		for (int i=0; i<_MeshRenderers.Count; i++)
+		if (Targets.Length == 0) return;
+		if (_Coroutine != null) StopCoroutine(_Coroutine);
+		_Reader.Release();
+		_Writer.Release();
+		_AABB.Release();
+		_Intersection.Release();
+		for (int i = 0; i < _MeshRenderers.Count; i++)
 		{
-			for (int j=0; j<_MeshRenderers[i].Count; j++)
+			for (int j = 0; j < _MeshRenderers[i].Count; j++)
 			{
 				_MeshRenderers[i][j].enabled = true;
 			}
