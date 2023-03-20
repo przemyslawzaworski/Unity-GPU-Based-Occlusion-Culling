@@ -20,7 +20,7 @@ Scene "Main" contains four animated high-poly primitives.
 
 To Do:
 
-* Shadow Culling
+* ~~Shadow Culling~~ Currently there is an issue with "disappearing shadows" - situation when object is culled, but it's shadow should be visible. Soon I will add the simplest solution: optional shadow culling with Renderer.shadowCastingMode = ShadowCastingMode.ShadowsOnly, where invisible objects cast shadows and simultaneously it reduces number of draw calls.
 
 * ~~Deformable objects support (make efficient algorithm for recalculating bounding box in realtime)~~ Soon I will add my solution with InterlockedMin / InterlockedMax, preview: https://forum.unity.com/threads/feedback-wanted-mesh-compute-shader-access.1096531/page-2#post-8865138
 
