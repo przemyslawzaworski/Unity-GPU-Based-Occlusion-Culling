@@ -3,6 +3,8 @@
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
 /Unity-GPU-Based-Occlusion-Culling/[Ll]ibrary/
+/Unity-GPU-Based-Occlusion-Culling/[Tt]emp/
+/Unity-GPU-Based-Occlusion-Culling/[Ll]ogs/
 
 /[Ll]ibrary/
 /[Tt]emp/

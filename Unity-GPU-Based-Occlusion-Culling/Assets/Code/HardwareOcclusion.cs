@@ -4,8 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine.Rendering;
 using Unity.Collections;
-
-public class HardwareOcclusion : MonoBehaviour 
+public class HardwareOcclusion : MonoBehaviour
 {
 	public GameObject[] Targets;
 	public Shader HardwareOcclusionShader;
@@ -30,13 +29,14 @@ public class HardwareOcclusion : MonoBehaviour
 	private int _CellIndex = -1;
 	private Coroutine _Coroutine;
 
-	struct Cuboid
-	{
-		public Vector3 Center;
-		public Vector3 Scale;
-	};
+    
+    struct Cuboid
+    {
+        public Vector3 Center;
+        public Vector3 Scale;
+    }
 
-	Vector3 GetCenterFromCubeVertices (Vector4[] verts)
+    Vector3 GetCenterFromCubeVertices (Vector4[] verts)
 	{
 		Vector3 total = Vector3.zero;
 		int length = verts.Length;
@@ -108,7 +108,7 @@ public class HardwareOcclusion : MonoBehaviour
 	{
 		_Vertices.Clear();
 		_Vertices.TrimExcess();
-		for (int i = 0; i < Targets.Length; i++) 
+		for (int i = 0; i < Targets.Length; i++)
 		{
 			Vector4[] aabb = GenerateCell(Targets[i], i);
 			_Cuboids[i].Center = GetCenterFromCubeVertices(aabb);
@@ -134,18 +134,28 @@ public class HardwareOcclusion : MonoBehaviour
 		for (int i = 0; i < source.Length; i++) destination[i] = source[i];
 	}
 
-	void Init()
-	{
-		if (_Material == null) _Material = new Material(HardwareOcclusionShader);
+    void Init()
+    {
+		if (_Material == null)
+			_Material = new Material(HardwareOcclusionShader);
+
 		_MeshRenderers = new List<List<MeshRenderer>>();
+
+		int stride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(Cuboid));
+
 		_Writer = new ComputeBuffer(Targets.Length, 16, ComputeBufferType.Default);
 		_Elements = new Vector4[Targets.Length];
 		_Cache = new Vector4[Targets.Length];
 		_Cuboids = new Cuboid[Targets.Length];
-		if (_Cache.Length > 0) _Cache[0] = Vector4.one;
+
+		if (_Cache.Length > 0)
+			_Cache[0] = Vector4.one;
+
 		_Vertices = new List<Vector4>();
+
 		Graphics.ClearRandomWriteTargets();
 		Graphics.SetRandomWriteTarget(1, _Writer, false);
+
 		for (int i = 0; i < Targets.Length; i++)
 		{
 			_MeshRenderers.Add(Targets[i].GetComponentsInChildren<MeshRenderer>().ToList());
@@ -154,21 +164,36 @@ public class HardwareOcclusion : MonoBehaviour
 			_Cuboids[i].Scale = GetScaleFromCubeVertices(aabb);
 			_Vertices.AddRange(aabb);
 		}
+
 		_Reader = new ComputeBuffer(_Vertices.Count, 16, ComputeBufferType.Default);
 		_Reader.SetData(_Vertices.ToArray());
+
 		_Material.SetBuffer("_Reader", _Reader);
 		_Material.SetBuffer("_Writer", _Writer);
 		_Material.SetInt("_Debug", System.Convert.ToInt32(Debug));
-		_AABB = new ComputeBuffer(_Cuboids.Length, 24, ComputeBufferType.Default);
-		_Intersection = new ComputeBuffer(1, 4, ComputeBufferType.Default);
+
+		// Adjusted the stride here as well
+		_AABB = new ComputeBuffer(_Cuboids.Length, stride, ComputeBufferType.Default);
+
+		_Intersection = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Default);
+
 		IntersectionShader.SetBuffer(0, "_AABB", _AABB);
 		IntersectionShader.SetBuffer(0, "_Intersection", _Intersection);
-		_AABB.SetData(_Cuboids);
-		_Reset = new int[1] {-1};
-		_Coroutine = Intersection ? StartCoroutine(UpdateAsync()) : null;
-	}
 
-	void OnEnable() 
+		//// Adjusted the size of _Cuboids to match the stride
+
+		_AABB.SetData(_Cuboids, 0, 0, _Cuboids.Length);
+
+		//// Create an array of int to hold the reset value
+		_Reset = new int[1] { -1 };
+
+		// Check if the Intersection coroutine should be started
+		//_Coroutine = Intersection ? StartCoroutine(UpdateAsync()) : null;
+		StartCoroutine(UpdateAsync());
+
+    }
+
+    void OnEnable() 
 	{
 		if (Targets.Length == 0) return;
 		Init();
@@ -179,8 +204,8 @@ public class HardwareOcclusion : MonoBehaviour
 		if (Targets.Length == 0) return;
 		if (Dynamic) GenerateMap();
 		if (Time.frameCount % Delay != 0) return;
-		_Writer.GetData(_Elements);
-		bool state = ArrayState (_Elements, _Cache);
+        _Writer.GetData(_Elements);
+		bool state = ArrayState(_Elements, _Cache);
 		if (!state)
 		{
 			for (int i = 0; i < _MeshRenderers.Count; i++)
@@ -206,7 +231,7 @@ public class HardwareOcclusion : MonoBehaviour
 			Vector3 position = Camera.main.transform.position;
 			IntersectionShader.SetVector("_Point", new Vector4(position.x, position.y, position.z, 0.0f));
 			_Intersection.SetData(_Reset);
-			int threadGroupsX = (int) Mathf.Ceil(_Cuboids.Length / 8.0f);
+			int threadGroupsX = (int)Mathf.Ceil(_Cuboids.Length / 8.0f);
 			IntersectionShader.Dispatch(0, threadGroupsX, 1, 1);
 			AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(_Intersection);
 			yield return new WaitUntil(() => request.done);
@@ -223,18 +248,18 @@ public class HardwareOcclusion : MonoBehaviour
 
 	void OnDisable()
 	{
-		if (Targets.Length == 0) return;
-		if (_Coroutine != null) StopCoroutine(_Coroutine);
-		_Reader.Release();
-		_Writer.Release();
-		_AABB.Release();
-		_Intersection.Release();
-		for (int i = 0; i < _MeshRenderers.Count; i++)
-		{
-			for (int j = 0; j < _MeshRenderers[i].Count; j++)
-			{
-				_MeshRenderers[i][j].enabled = true;
-			}
-		}
+		//if (Targets.Length == 0) return;
+		//if (_Coroutine != null) StopCoroutine(_Coroutine);
+		//_Reader.Release();
+		//_Writer.Release();
+		//_AABB.Release();
+		//_Intersection.Release();
+		//for (int i = 0; i < _MeshRenderers.Count; i++)
+		//{
+		//	for (int j = 0; j < _MeshRenderers[i].Count; j++)
+		//	{
+		//		_MeshRenderers[i][j].enabled = true;
+		//	}
+		//}
 	}
 }
